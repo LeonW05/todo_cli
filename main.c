@@ -2,6 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Detect if the OS is windows or linux
+#ifdef _WIN32
+    #define PATH_SEPARATOR "\\"
+#else
+    #define PATH_SEPARATOR "/"
+#endif
+
 #define MAX_STRING_LENGTH 256
 typedef struct Task {
     int completed;
@@ -10,6 +17,21 @@ typedef struct Task {
 } Task;
 
 Task* task_list = NULL;
+
+void get_path(char* buffer, size_t size) {
+    char* home = getenv("HOME");
+    if (home == NULL) {
+        // We are on windows
+        home = getenv("USERPROFILE");
+    }
+
+    if (home == NULL) {
+        // If everything fails, just use the current directory
+        snprintf(buffer, size, ".tasks.txt");
+    } else {
+        snprintf(buffer, size, "%s%s%s", home, PATH_SEPARATOR, ".tasks.txt");
+    }
+}
 
 void add(char *description) {
     Task* new_task = (Task*)malloc(sizeof(Task));
@@ -109,11 +131,13 @@ void delete(int pos) {
 }
 
 void load_file() {
-    FILE* file = fopen("tasks.txt", "r");
+    char path[512];
+    get_path(path, sizeof(path));
+    FILE* file = fopen(path, "r");
     if (file == NULL) return;
 
     int status;
-    char desc[256];
+    char desc[MAX_STRING_LENGTH];
 
     while (fscanf(file, "%d;%[^\n]", &status, desc) == 2) {
         add(desc);
@@ -127,7 +151,9 @@ void load_file() {
 }
 
 void save_file() {
-    FILE* file = fopen("tasks.txt", "w");
+    char path[512];
+    get_path(path, sizeof(path));
+    FILE* file = fopen(path, "w");
     if (file == NULL) return;
 
     Task* current_task = task_list;
@@ -168,17 +194,33 @@ int main(int argc, char* argv[]) {
     load_file();
 
     if (strcmp(argv[1], "add") == 0) {
+        if (argc < 3) {
+            printf("Please provide a task description.\n");
+            exit(EXIT_FAILURE);
+        }
         add(argv[2]);
         save_file();
     } else if (strcmp(argv[1], "list") == 0) {
         list();
     } else if (strcmp(argv[1], "complete") == 0) {
+        if (argc < 3) {
+            printf("Please provide the task id to complete.\n");
+            exit(EXIT_FAILURE);
+        }
         complete(atoi(argv[2]));
         save_file();
     } else if (strcmp(argv[1], "uncomplete") == 0){
+        if (argc < 3) {
+            printf("Please provide the task id to uncomplete.\n");
+            exit(EXIT_FAILURE);
+        }
         uncomplete(atoi(argv[2]));
         save_file();
     } else if (strcmp(argv[1], "delete") == 0) {
+        if (argc < 3) {
+            printf("Please provide the task id to delete.\n");
+            exit(EXIT_FAILURE);
+        }
         delete(atoi(argv[2]));
         save_file();
     } else if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
